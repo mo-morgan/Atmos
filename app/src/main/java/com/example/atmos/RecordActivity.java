@@ -26,8 +26,14 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.ByteArrayBody;
+import org.apache.http.entity.mime.content.ContentBody;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -112,68 +118,7 @@ public class RecordActivity extends AppCompatActivity {
 //                                File fileToSend = new File(currentFilePath);
                                 Bitmap bm = mediaMetadataRetriever.getFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST);
 //                                Log.d(LOG_TAG, String.valueOf(bm.getHeight()));
-
-                                String attachmentName = currentFileName;
-                                String attachmentFileName = currentFileName + ".bmp";
-                                String crlf = "\r\n";
-                                String twoHyphens = "--";
-                                String boundary =  "*****";
-
-                                try {
-                                    HttpURLConnection httpURLConnection = (HttpURLConnection) new URL(Url).openConnection();
-                                    httpURLConnection.setUseCaches(false);
-                                    httpURLConnection.setDoOutput(true);
-
-                                    httpURLConnection.setRequestMethod("POST");
-                                    httpURLConnection.setRequestProperty("Connection", "Keep-Alive");
-                                    httpURLConnection.setRequestProperty("Cache-Control", "no-cache");
-                                    httpURLConnection.setRequestProperty(
-                                            "Content-Type", "multipart/form-data;boundary=" + boundary);
-
-                                    DataOutputStream request = new DataOutputStream(
-                                            httpURLConnection.getOutputStream());
-
-                                    request.writeBytes(twoHyphens + boundary + crlf);
-                                    request.writeBytes("Content-Disposition: form-data; name=\"" +
-                                            attachmentName + "\";filename=\"" +
-                                            attachmentFileName + "\"" + crlf);
-                                    request.writeBytes(crlf);
-
-                                    byte[] pixels = new byte[bm.getWidth() * bm.getHeight()];
-
-                                    request.write(pixels);
-                                    request.writeBytes(crlf);
-                                    request.writeBytes(twoHyphens + boundary +
-                                            twoHyphens + crlf);
-
-                                    request.flush();
-                                    request.close();
-
-                                    InputStream responseStream = new
-                                            BufferedInputStream(httpURLConnection.getInputStream());
-
-                                    BufferedReader responseStreamReader =
-                                            new BufferedReader(new InputStreamReader(responseStream));
-
-                                    String line = "";
-                                    StringBuilder stringBuilder = new StringBuilder();
-
-                                    while ((line = responseStreamReader.readLine()) != null) {
-                                        stringBuilder.append(line).append("\n");
-                                    }
-                                    responseStreamReader.close();
-
-                                    // JSON response
-                                    String response = stringBuilder.toString();
-
-                                    responseStream.close();
-
-                                    httpURLConnection.disconnect();
-
-
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
+                                new AsyncUploadBitmaps().execute(bm);
                             }
                         } else {
                             // initialize video camera
@@ -471,8 +416,78 @@ public class RecordActivity extends AppCompatActivity {
 
         @Override
         protected String doInBackground(Bitmap... bitmaps) {
+            Bitmap bitmap = bitmaps[0];
+            String filename = currentFileName;
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bos);
+            ContentBody contentPart = new ByteArrayBody(bos.toByteArray(), filename);
+
+            MultipartEntity reqEntity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
+            reqEntity.addPart("picture", contentPart);
+            String response = multipost(Url, reqEntity);
+            Log.d(LOG_TAG, response);
+
+            return response;
+        }
+
+        private String multipost(String urlString, MultipartEntity reqEntity) {
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setReadTimeout(10000);
+                conn.setConnectTimeout(15000);
+                conn.setRequestMethod("POST");
+                conn.setUseCaches(false);
+                conn.setDoInput(true);
+                conn.setDoOutput(true);
+
+                conn.setRequestProperty("Connection", "Keep-Alive");
+                conn.addRequestProperty("Content-length", reqEntity.getContentLength()+"");
+                conn.setRequestProperty("User-Agent","Mozilla/5.0 ( compatible ) ");
+                conn.setRequestProperty("Accept","*/*");
+                conn.addRequestProperty(reqEntity.getContentType().getName(), reqEntity.getContentType().getValue());
+
+                OutputStream os = conn.getOutputStream();
+                reqEntity.writeTo(conn.getOutputStream());
+                os.close();
+                conn.connect();
+
+                int response = conn.getResponseCode();
+
+                if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                    return readStream(conn.getInputStream());
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             return null;
         }
+
+        private String readStream(InputStream in) {
+            BufferedReader reader = null;
+            StringBuilder builder = new StringBuilder();
+            try {
+                reader = new BufferedReader(new InputStreamReader(in));
+                String line = "";
+                while ((line = reader.readLine()) != null) {
+                    builder.append(line);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            return builder.toString();
+        }
+
+
     }
 
     private class DetectVolume implements Runnable {
@@ -505,3 +520,85 @@ public class RecordActivity extends AppCompatActivity {
         }
     }
 }
+// backup----------------------
+//String attachmentName = currentFileName;
+//            String attachmentFileName = currentFileName + ".bmp";
+//            String crlf = "\r\n";
+//            String twoHyphens = "--";
+//            String boundary =  "*****";
+//
+//            try {
+//                HttpURLConnection httpURLConnection = (HttpURLConnection) new URL(Url).openConnection();
+//                httpURLConnection.setUseCaches(false);
+//                httpURLConnection.setInstanceFollowRedirects(false);
+//                httpURLConnection.setDoInput(true);
+//                httpURLConnection.setDoOutput(true);
+//
+//                httpURLConnection.setRequestMethod("POST");
+//                httpURLConnection.setRequestProperty("Connection", "Keep-Alive");
+//                httpURLConnection.setRequestProperty("Cache-Control", "no-cache");
+//                httpURLConnection.setRequestProperty(
+//                        "Content-Type", "multipart/form-data;boundary=" + boundary);
+//                httpURLConnection.setRequestProperty("User-Agent","Mozilla/5.0 ( compatible ) ");
+//                httpURLConnection.setRequestProperty("Accept","*/*");
+//
+//                DataOutputStream request = new DataOutputStream(
+//                        httpURLConnection.getOutputStream());
+//
+//                request.writeBytes(twoHyphens + boundary + crlf);
+//                request.writeBytes("Content-Disposition: form-data; name=\"" +
+//                        attachmentName + "\";filename=\"" +
+//                        attachmentFileName + "\"" + crlf);
+//                request.writeBytes(crlf);
+//
+//                byte[] pixels = null;
+//                for (Bitmap bm : bitmaps) {
+//                    pixels = new byte[bm.getWidth() * bm.getHeight()];
+//                }
+//
+//
+//                if (pixels != null) {
+//                    request.write(pixels);
+//
+//                    request.writeBytes(crlf);
+//                    request.writeBytes(twoHyphens + boundary +
+//                            twoHyphens + crlf);
+//
+//                    request.flush();
+//                    request.close();
+//                }
+//
+////                InputStream responseStream = new
+////                        BufferedInputStream(httpURLConnection.getInputStream());
+//
+//                int responseCode = httpURLConnection.getResponseCode();
+//                Log.d(LOG_TAG, String.valueOf(responseCode));
+//
+//                InputStream responseStream = new
+//                        BufferedInputStream(httpURLConnection.getInputStream());
+//
+//
+//                BufferedReader responseStreamReader =
+//                        new BufferedReader(new InputStreamReader(responseStream));
+//
+//                String line = "";
+//                StringBuilder stringBuilder = new StringBuilder();
+//
+//                while ((line = responseStreamReader.readLine()) != null) {
+//                    stringBuilder.append(line).append("\n");
+//                }
+//                responseStreamReader.close();
+//
+//                // JSON response
+//                String response = stringBuilder.toString();
+//
+//                responseStream.close();
+//
+//                httpURLConnection.disconnect();
+//
+//                Log.d(LOG_TAG, response);
+//            } catch (Exception e) {
+//
+//                e.printStackTrace();
+//            }
+//            return null;
