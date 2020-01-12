@@ -1,21 +1,38 @@
 package com.example.atmos;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
+    private final String LOG_TAG  = "MorganDebug";
+
+    private RecordButton recordButton = null;
+    private MediaRecorder recorder = null;
+
+    private MediaPlayer player = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
 
         requestPermissions();
+
+        recordButton = new RecordButton(this);
+
+        setContentView(R.layout.activity_main);
     }
+
+
 
     private void requestPermissions() {
         ActivityCompat.requestPermissions(MainActivity.this,
@@ -25,10 +42,6 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(MainActivity.this,
                 new String[]{Manifest.permission.INTERNET},
                 2);
-
-        ActivityCompat.requestPermissions(MainActivity.this,
-                new String[]{Manifest.permission.SET_WALLPAPER},
-                3);
     }
 
     @Override
@@ -66,23 +79,32 @@ public class MainActivity extends AppCompatActivity {
                 }
                 return;
             }
+        }
+    }
 
-            case 3: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+    private void onRecord(boolean start) {
+        
+    }
 
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
+    class RecordButton extends android.support.v7.widget.AppCompatButton {
+        boolean mStartRecording = true;
+
+        OnClickListener clicker = new OnClickListener() {
+            public void onClick(View v) {
+                onRecord(mStartRecording);
+                if (mStartRecording) {
+                    setText("Stop recording");
                 } else {
-
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
-                    Toast.makeText(MainActivity.this, "Permission denied to set wallpaper", Toast.LENGTH_SHORT).show();
+                    setText("Start recording");
                 }
-                return;
+                mStartRecording = !mStartRecording;
             }
+        };
 
+        public RecordButton(Context ctx) {
+            super(ctx);
+            setText("Start recording");
+            setOnClickListener(clicker);
         }
     }
 }
