@@ -6,9 +6,11 @@ import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -25,14 +27,26 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        requestPermissions();
+        if (!checkIfAlreadyHavePermission()) {
+            requestPermissions();
+        }
 
+        LinearLayout ll = new LinearLayout(this);
         recordButton = new RecordButton(this);
+        ll.addView(recordButton,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        0));
 
         setContentView(R.layout.activity_main);
     }
 
+    private boolean checkIfAlreadyHavePermission() {
+        int result = ContextCompat.checkSelfPermission(this, Manifest.permission.GET_ACCOUNTS);
 
+        return result == PackageManager.PERMISSION_GRANTED;
+    }
 
     private void requestPermissions() {
         ActivityCompat.requestPermissions(MainActivity.this,
@@ -59,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // permission denied, boo! Disable the
                     // functionality that depends on this permission.
-                    Toast.makeText(MainActivity.this, "Permission denied to read your External storage", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Permission denied to record audio", Toast.LENGTH_SHORT).show();
                 }
                 return;
             }
@@ -75,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // permission denied, boo! Disable the
                     // functionality that depends on this permission.
-                    Toast.makeText(MainActivity.this, "Permission denied to write your External storage", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, "Permission denied for internet", Toast.LENGTH_SHORT).show();
                 }
                 return;
             }
@@ -83,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onRecord(boolean start) {
-        
+
     }
 
     class RecordButton extends android.support.v7.widget.AppCompatButton {
